@@ -9,7 +9,7 @@ A visual elevator simulation built with Kotlin/WASM and Compose Multiplatform. T
 - **Smooth Animations**: Eased movement (2 seconds per floor) and door animations (0.5 seconds)
 - **SCAN Algorithm**: Elevator services floors using the classic elevator algorithm (continues in current direction, then reverses)
 - **Interactive Button Panel**: Click floor buttons to queue destinations; buttons light up when selected
-- **Direction Indicator**: Arrow displays on the car showing travel direction
+- **Direction Indicator**: Arrow displays on the car showing the travel direction
 - **Auto-Return**: Elevator returns to floor 1 when idle
 
 ## Requirements
@@ -21,13 +21,13 @@ A visual elevator simulation built with Kotlin/WASM and Compose Multiplatform. T
 
 1. Clone the repository and navigate to the project directory
 
-2. Start the development server:
+2. Start the development server (Windows):
    ```
-   ./gradlew wasmJsBrowserDevelopmentRun
+   .\gradlew wasmJsBrowserDevelopmentRun
    ```
-   On Windows:
+   Or:
    ```
-   gradlew.bat wasmJsBrowserDevelopmentRun
+   .\gradlew.bat wasmJsBrowserDevelopmentRun
    ```
 
 3. Open your browser to http://localhost:8082

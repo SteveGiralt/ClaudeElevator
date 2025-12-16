@@ -33,9 +33,15 @@ class ElevatorState {
     var currentFloor by mutableStateOf(1)
     var targetFloor by mutableStateOf(1)
     var direction by mutableStateOf(Direction.NONE)
-    var doorState by mutableStateOf(DoorState.OPEN) // Start with doors open at floor 1
-    var doorProgress by mutableStateOf(1f) // 0 = closed, 1 = open
-    var positionProgress by mutableStateOf(0f) // 0-1 progress between floors
+
+    // Start with doors open at floor 1
+    var doorState by mutableStateOf(DoorState.OPEN)
+
+    // 0 = closed, 1 = open
+    var doorProgress by mutableStateOf(1f)
+
+    // 0-1 progress between floors
+    var positionProgress by mutableStateOf(0f)
     var isMoving by mutableStateOf(false)
     var queuedFloors by mutableStateOf(setOf<Int>())
 }
@@ -52,7 +58,10 @@ fun App() {
     val elevatorState = remember { ElevatorState() }
 
     // Elevator controller logic
-    LaunchedEffect(elevatorState.queuedFloors, elevatorState.isMoving, elevatorState.doorState) {
+    LaunchedEffect(
+        elevatorState.queuedFloors,
+        elevatorState.isMoving,
+        elevatorState.doorState) {
         // Don't process while doors are closing
         if (elevatorState.doorState == DoorState.CLOSING) {
             return@LaunchedEffect
@@ -63,7 +72,8 @@ fun App() {
         }
 
         // Handle button press while idle at floor 1 with doors open
-        if (elevatorState.doorState == DoorState.OPEN && elevatorState.queuedFloors.isNotEmpty()) {
+        if (elevatorState.doorState ==
+            DoorState.OPEN && elevatorState.queuedFloors.isNotEmpty()) {
             elevatorState.doorState = DoorState.CLOSING
             return@LaunchedEffect
         }
@@ -71,11 +81,15 @@ fun App() {
         if (elevatorState.doorState == DoorState.CLOSED) {
             // Determine next floor using elevator algorithm
             val nextFloor = getNextFloor(elevatorState)
-            if (nextFloor != null && nextFloor != elevatorState.currentFloor) {
+            if (nextFloor != null && nextFloor !=
+                elevatorState.currentFloor) {
                 elevatorState.targetFloor = nextFloor
-                elevatorState.direction = if (nextFloor > elevatorState.currentFloor) Direction.UP else Direction.DOWN
+                elevatorState.direction =
+                    if (nextFloor > elevatorState.currentFloor) Direction.UP
+                    else Direction.DOWN
                 elevatorState.isMoving = true
-            } else if (elevatorState.queuedFloors.isEmpty() && elevatorState.currentFloor != 1) {
+            } else if (elevatorState.queuedFloors.isEmpty() &&
+                elevatorState.currentFloor != 1) {
                 // Return to floor 1 when idle
                 elevatorState.targetFloor = 1
                 elevatorState.direction = Direction.DOWN
@@ -96,18 +110,22 @@ fun App() {
                 val frames = duration / 16
                 for (i in 1..frames) {
                     val progress = i.toFloat() / frames
+
                     // Ease out
                     val eased = 1f - (1f - progress) * (1f - progress)
-                    elevatorState.doorProgress = startProgress + (1f - startProgress) * eased
+                    elevatorState.doorProgress =
+                        startProgress + (1f - startProgress) * eased
                     delay(16)
                 }
                 elevatorState.doorProgress = 1f
 
-                // Dwell time (doors visually open, state still OPENING to prevent cancellation)
+                // Dwell time (doors visually open,
+                // state still OPENING to prevent cancellation)
                 delay(2000)
 
                 // Now decide: close doors or stay open
-                if (elevatorState.queuedFloors.isNotEmpty() || elevatorState.currentFloor != 1) {
+                if (elevatorState.queuedFloors.isNotEmpty() ||
+                    elevatorState.currentFloor != 1) {
                     elevatorState.doorState = DoorState.CLOSING
                 } else {
                     // Idle at floor 1 - hide direction arrow
@@ -121,9 +139,11 @@ fun App() {
                 val frames = duration / 16
                 for (i in 1..frames) {
                     val progress = i.toFloat() / frames
+
                     // Ease in
                     val eased = progress * progress
-                    elevatorState.doorProgress = startProgress * (1f - eased)
+                    elevatorState.doorProgress =
+                        startProgress * (1f - eased)
                     delay(16)
                 }
                 elevatorState.doorProgress = 0f
@@ -133,13 +153,18 @@ fun App() {
         }
     }
 
-    // Movement animation - smooth continuous motion, stops only at queued floors
-    LaunchedEffect(elevatorState.isMoving, elevatorState.targetFloor) {
+    // Movement animation - smooth continuous motion,
+    // stops only at queued floors
+    LaunchedEffect(
+        elevatorState.isMoving,
+        elevatorState.targetFloor) {
         if (!elevatorState.isMoving) return@LaunchedEffect
 
         val startFloor = elevatorState.currentFloor
-        val direction = if (elevatorState.targetFloor > startFloor) 1 else -1
-        val totalFloors = kotlin.math.abs(elevatorState.targetFloor - startFloor)
+        val direction =
+            if (elevatorState.targetFloor > startFloor) 1 else -1
+        val totalFloors =
+            kotlin.math.abs(elevatorState.targetFloor - startFloor)
         val msPerFloor = 2000
         val totalDuration = msPerFloor * totalFloors
         val frames = totalDuration / 16
@@ -165,7 +190,7 @@ fun App() {
             elevatorState.currentFloor = newFloor.coerceIn(1, 6)
             elevatorState.positionProgress = floorProgress
 
-            // Check if we just arrived at a new floor and it's in the queue
+            // Check if we just arrived at a new floor that is in the queue
             if (newFloor != lastPassedFloor && newFloor != startFloor) {
                 if (newFloor in elevatorState.queuedFloors) {
                     stopFloor = newFloor
@@ -182,7 +207,7 @@ fun App() {
         elevatorState.currentFloor = arrivedFloor
         elevatorState.positionProgress = 0f
 
-        // Remove from queue and open doors
+        // Remove from the queue and open the doors
         if (arrivedFloor in elevatorState.queuedFloors) {
             elevatorState.queuedFloors -= arrivedFloor
         }
@@ -212,10 +237,12 @@ fun App() {
                 litButtons = elevatorState.queuedFloors,
                 onButtonPress = { floor ->
                     // Don't light button if elevator is at that floor
-                    if (elevatorState.currentFloor == floor && !elevatorState.isMoving) {
+                    if (elevatorState.currentFloor == floor &&
+                        !elevatorState.isMoving) {
                         return@ElevatorButtonPanel
                     }
-                    elevatorState.queuedFloors = if (floor in elevatorState.queuedFloors) {
+                    elevatorState.queuedFloors =
+                        if (floor in elevatorState.queuedFloors) {
                         elevatorState.queuedFloors - floor
                     } else {
                         elevatorState.queuedFloors + floor
@@ -229,7 +256,8 @@ fun App() {
     }
 }
 
-// SCAN/Elevator algorithm: continue in the current direction, then reverse
+// SCAN/Elevator algorithm:
+// continue in the current direction, then reverse
 fun getNextFloor(state: ElevatorState): Int? {
     if (state.queuedFloors.isEmpty()) return null
 
@@ -240,13 +268,17 @@ fun getNextFloor(state: ElevatorState): Int? {
         Direction.UP -> {
             // Look for the floors above
             val floorsAbove = queued.filter { it > current }.minOrNull()
-            floorsAbove ?: // Reverse direction, get the highest floor below
+
+            // Reverse direction, get the highest floor below
+            floorsAbove ?:
             queued.filter { it < current }.maxOrNull()
         }
         Direction.DOWN -> {
             // Look for floors below
             val floorsBelow = queued.filter { it < current }.maxOrNull()
-            floorsBelow ?: // Reverse direction, get the lowest floor above
+
+            // Reverse direction, get the lowest floor above
+            floorsBelow ?:
             queued.filter { it > current }.minOrNull()
         }
         Direction.NONE -> {
@@ -264,8 +296,10 @@ fun ElevatorShaft(
     val textMeasurer = rememberTextMeasurer()
     val carColor = Color(0xFFFFB300) // Amber/gold
     val doorColor = Color(0xFF757575) // Gray
-    val floorColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f)
-    val labelColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+    val floorColor =
+        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.2f)
+    val labelColor =
+        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
 
     Box(
         modifier = modifier,
@@ -302,7 +336,8 @@ fun ElevatorShaft(
                     textLayoutResult = textLayoutResult,
                     topLeft = Offset(
                         x = (shaftLeft - textLayoutResult.size.width) / 2,
-                        y = floorTop + (floorHeight - textLayoutResult.size.height) / 2
+                        y = floorTop +
+                                (floorHeight - textLayoutResult.size.height) / 2
                     )
                 )
 
@@ -317,12 +352,14 @@ fun ElevatorShaft(
             // Calculate elevator position
             val elevatorFloor = elevatorState.currentFloor
             val progress = elevatorState.positionProgress
-            val directionMultiplier = if (elevatorState.direction == Direction.UP) 1f else -1f
+            val directionMultiplier =
+                if (elevatorState.direction == Direction.UP) 1f else -1f
             val carClearance = floorHeight * 0.15f
             val carHeight = floorHeight - carClearance
 
             val baseY = size.height - (elevatorFloor * floorHeight)
-            val carY = baseY + carClearance - (progress * floorHeight * directionMultiplier)
+            val carY = baseY + carClearance -
+                    (progress * floorHeight * directionMultiplier)
 
             // Draw elevator car body
             drawRect(
@@ -338,12 +375,15 @@ fun ElevatorShaft(
             val doorGap = carWidth * 0.05f
             val centerX = carLeftOffset + carWidth / 2
 
-            // Door width shrinks as they open (doorProgress: 0=closed, 1=open)
-            val currentDoorWidth = maxDoorWidth * (1f - elevatorState.doorProgress)
+            // Door width shrinks as they open
+            // (doorProgress: 0=closed, 1=open)
+            val currentDoorWidth =
+                maxDoorWidth * (1f - elevatorState.doorProgress)
 
             // Only draw doors if they have width
             if (currentDoorWidth > 0.5f) {
-                // Left door - outer edge fixed, inner edge shrinks away from the center
+                // Left door - outer edge fixed,
+                // inner edge shrinks away from the center
                 drawRect(
                     color = doorColor,
                     topLeft = Offset(centerX - doorGap / 2 - maxDoorWidth, doorY),
@@ -353,12 +393,14 @@ fun ElevatorShaft(
                 // Right door - outer edge fixed, inner edge shrinks away from the center
                 drawRect(
                     color = doorColor,
-                    topLeft = Offset(centerX + doorGap / 2 + maxDoorWidth - currentDoorWidth, doorY),
+                    topLeft = Offset(centerX + doorGap / 2 +
+                            maxDoorWidth - currentDoorWidth, doorY),
                     size = Size(currentDoorWidth, doorHeight)
                 )
             }
 
-            // Draw the direction indicator (arrow) if there are calls to service
+            // Draw the direction indicator (arrow)
+            // if there are calls to service
             if (elevatorState.direction != Direction.NONE) {
                 val arrowSize = carHeight * 0.2f
                 val arrowCenterY = carY + carHeight * 0.3f
@@ -366,13 +408,17 @@ fun ElevatorShaft(
                 val path = Path().apply {
                     if (elevatorState.direction == Direction.UP) {
                         moveTo(centerX, arrowCenterY - arrowSize / 2)
-                        lineTo(centerX - arrowSize / 2, arrowCenterY + arrowSize / 2)
-                        lineTo(centerX + arrowSize / 2, arrowCenterY + arrowSize / 2)
+                        lineTo(centerX - arrowSize / 2,
+                            arrowCenterY + arrowSize / 2)
+                        lineTo(centerX + arrowSize / 2,
+                            arrowCenterY + arrowSize / 2)
                         close()
                     } else {
                         moveTo(centerX, arrowCenterY + arrowSize / 2)
-                        lineTo(centerX - arrowSize / 2, arrowCenterY - arrowSize / 2)
-                        lineTo(centerX + arrowSize / 2, arrowCenterY - arrowSize / 2)
+                        lineTo(centerX - arrowSize / 2,
+                            arrowCenterY - arrowSize / 2)
+                        lineTo(centerX + arrowSize / 2,
+                            arrowCenterY - arrowSize / 2)
                         close()
                     }
                 }
