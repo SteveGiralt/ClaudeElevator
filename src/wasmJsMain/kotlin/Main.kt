@@ -133,41 +133,58 @@ fun App() {
         }
     }
 
-    // Movement animation
+    // Movement animation - smooth continuous motion, stops only at queued floors
     LaunchedEffect(elevatorState.isMoving, elevatorState.targetFloor) {
         if (!elevatorState.isMoving) return@LaunchedEffect
 
-        val floorsToTravel = kotlin.math.abs(elevatorState.targetFloor - elevatorState.currentFloor)
-        val totalDuration = 2000 * floorsToTravel
         val startFloor = elevatorState.currentFloor
+        val direction = if (elevatorState.targetFloor > startFloor) 1 else -1
+        val totalFloors = kotlin.math.abs(elevatorState.targetFloor - startFloor)
+        val msPerFloor = 2000
+        val totalDuration = msPerFloor * totalFloors
         val frames = totalDuration / 16
+
+        var lastPassedFloor = startFloor
+        var stopFloor: Int? = null
 
         for (i in 1..frames) {
             val linearProgress = i.toFloat() / frames
 
-            // Ease in-out
+            // Ease in-out for smooth acceleration/deceleration
             val eased = if (linearProgress < 0.5f) {
                 2f * linearProgress * linearProgress
             } else {
                 1f - (-2f * linearProgress + 2f).let { it * it } / 2f
             }
 
-            val totalFloorProgress = eased * floorsToTravel
-            val direction = if (elevatorState.targetFloor > startFloor) 1 else -1
-            val newFloor = startFloor + (totalFloorProgress.toInt() * direction)
-            val floorProgress = totalFloorProgress - totalFloorProgress.toInt()
+            val totalFloorProgress = eased * totalFloors
+            val currentFloorFromStart = totalFloorProgress.toInt()
+            val floorProgress = totalFloorProgress - currentFloorFromStart
 
+            val newFloor = startFloor + (currentFloorFromStart * direction)
             elevatorState.currentFloor = newFloor.coerceIn(1, 6)
             elevatorState.positionProgress = floorProgress
+
+            // Check if we just arrived at a new floor and it's in the queue
+            if (newFloor != lastPassedFloor && newFloor != startFloor) {
+                if (newFloor in elevatorState.queuedFloors) {
+                    stopFloor = newFloor
+                    break
+                }
+                lastPassedFloor = newFloor
+            }
+
             delay(16)
         }
 
-        elevatorState.currentFloor = elevatorState.targetFloor
+        // Finalize position at stop floor or target
+        val arrivedFloor = stopFloor ?: elevatorState.targetFloor
+        elevatorState.currentFloor = arrivedFloor
         elevatorState.positionProgress = 0f
 
-        // Remove from queue and open doors BEFORE the setting isMoving = false
-        if (elevatorState.targetFloor in elevatorState.queuedFloors) {
-            elevatorState.queuedFloors -= elevatorState.targetFloor
+        // Remove from queue and open doors
+        if (arrivedFloor in elevatorState.queuedFloors) {
+            elevatorState.queuedFloors -= arrivedFloor
         }
         elevatorState.doorState = DoorState.OPENING
         elevatorState.isMoving = false
