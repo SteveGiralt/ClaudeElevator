@@ -1,12 +1,8 @@
 {
-  "name": "my-vercel-app",
-  "version": "1.0.0",
   "scripts": {
-    "postinstall": "chmod +x gradlew",
-    "buildCommand": "./gradlew wasmJsBrowserDistribution --build-cache",
-    "outputDirectory": "build/dist/wasmJs/productionExecutable",
-    "installCommand": "yum install -y java-17-amazon-corretto-devel"
+    "postinstall": "chmod +x gradlew"
   },
-  "dependencies": {
-  }
+  "buildCommand": "./gradlew wasmJsBrowserDistribution --build-cache",
+  "outputDirectory": "build/dist/wasmJs/productionExecutable",
+  "installCommand": "yum install -y java-17-amazon-corretto-devel"
 }
