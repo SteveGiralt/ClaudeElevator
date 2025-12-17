@@ -8,9 +8,14 @@ A visual elevator simulation built with Kotlin/WASM and Compose Multiplatform. T
 - **Animated Elevator Car**: Amber/gold car with gray doors that shrink open and grow closed
 - **Smooth Animations**: Eased movement (2 seconds per floor) and door animations (0.5 seconds)
 - **SCAN Algorithm**: Elevator services floors using the classic elevator algorithm (continues in current direction, then reverses)
-- **Interactive Button Panel**: Click floor buttons to queue destinations; buttons light up when selected
-- **Direction Indicator**: Arrow displays on the car showing the travel direction
-- **Auto-Return**: Elevator returns to floor 1 when idle
+- **Internal Button Panel**: Click floor buttons inside the elevator to queue destinations; buttons light up when selected and can be toggled off
+- **External Call Buttons**: Up/down call buttons next to each floor of the shaft
+  - Floor 1 has only an up button; Floor 6 has only a down button
+  - Buttons light up amber when pressed and cannot be canceled
+  - Aligned vertically with corresponding floors in the shaft
+- **Directional Awareness**: Elevator only stops for call buttons when traveling in the matching direction (up calls answered when going up, down calls when going down)
+- **Direction Indicator**: Arrow displays on the car showing the travel direction; clears when no destination is queued
+- **Auto-Return**: Elevator returns to floor 1 with doors open after 5 seconds of idle time
 
 ## Requirements
 
@@ -30,7 +35,7 @@ A visual elevator simulation built with Kotlin/WASM and Compose Multiplatform. T
    .\gradlew.bat wasmJsBrowserDevelopmentRun
    ```
 
-3. Open your browser to http://localhost:8082
+3. Open your browser to http://localhost:8088
 
 ## Project Structure
 
