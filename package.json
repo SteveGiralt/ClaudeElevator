@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "postinstall": "chmod +x gradlew",
-    "build": "./gradlew build",
-    "start": "node server.js"
+    "buildCommand": "./gradlew wasmJsBrowserDistribution --build-cache",
+    "outputDirectory": "build/dist/wasmJs/productionExecutable"
   },
   "dependencies": {
   }
