@@ -44,6 +44,10 @@ class ElevatorState {
     var positionProgress by mutableStateOf(0f)
     var isMoving by mutableStateOf(false)
     var queuedFloors by mutableStateOf(setOf<Int>())
+
+    // External call buttons (directional)
+    var callButtonsUp by mutableStateOf(setOf<Int>())    // Floors 1-5
+    var callButtonsDown by mutableStateOf(setOf<Int>())  // Floors 2-6
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -60,6 +64,8 @@ fun App() {
     // Elevator controller logic
     LaunchedEffect(
         elevatorState.queuedFloors,
+        elevatorState.callButtonsUp,
+        elevatorState.callButtonsDown,
         elevatorState.isMoving,
         elevatorState.doorState) {
         // Don't process while doors are closing
@@ -71,9 +77,13 @@ fun App() {
             return@LaunchedEffect
         }
 
-        // Handle button press while idle at floor 1 with doors open
-        if (elevatorState.doorState ==
-            DoorState.OPEN && elevatorState.queuedFloors.isNotEmpty()) {
+        // Check if any requests are pending
+        val hasRequests = elevatorState.queuedFloors.isNotEmpty() ||
+                elevatorState.callButtonsUp.isNotEmpty() ||
+                elevatorState.callButtonsDown.isNotEmpty()
+
+        // Handle button press while idle with doors open
+        if (elevatorState.doorState == DoorState.OPEN && hasRequests) {
             elevatorState.doorState = DoorState.CLOSING
             return@LaunchedEffect
         }
@@ -88,14 +98,42 @@ fun App() {
                     if (nextFloor > elevatorState.currentFloor) Direction.UP
                     else Direction.DOWN
                 elevatorState.isMoving = true
-            } else if (elevatorState.queuedFloors.isEmpty() &&
+            } else if (!hasRequests) {
+                // No requests - stay idle at current floor
+                elevatorState.direction = Direction.NONE
+            }
+        }
+    }
+
+    // Idle homing logic - return to floor 1 after 5 seconds of no requests
+    LaunchedEffect(
+        elevatorState.queuedFloors,
+        elevatorState.callButtonsUp,
+        elevatorState.callButtonsDown,
+        elevatorState.isMoving,
+        elevatorState.currentFloor
+    ) {
+        val hasRequests = elevatorState.queuedFloors.isNotEmpty() ||
+                elevatorState.callButtonsUp.isNotEmpty() ||
+                elevatorState.callButtonsDown.isNotEmpty()
+
+        // Only start homing timer if idle, not moving, and not at floor 1
+        if (!hasRequests && !elevatorState.isMoving &&
+            elevatorState.currentFloor != 1) {
+            // Wait 5 seconds
+            delay(5000)
+
+            // Re-check conditions after delay
+            val stillNoRequests = elevatorState.queuedFloors.isEmpty() &&
+                    elevatorState.callButtonsUp.isEmpty() &&
+                    elevatorState.callButtonsDown.isEmpty()
+
+            if (stillNoRequests && !elevatorState.isMoving &&
                 elevatorState.currentFloor != 1) {
-                // Return to floor 1 when idle
+                // Home to floor 1 with doors open
                 elevatorState.targetFloor = 1
                 elevatorState.direction = Direction.DOWN
                 elevatorState.isMoving = true
-            } else if (elevatorState.queuedFloors.isEmpty()) {
-                elevatorState.direction = Direction.NONE
             }
         }
     }
@@ -124,8 +162,10 @@ fun App() {
                 delay(2000)
 
                 // Now decide: close doors or stay open
-                if (elevatorState.queuedFloors.isNotEmpty() ||
-                    elevatorState.currentFloor != 1) {
+                val hasRequests = elevatorState.queuedFloors.isNotEmpty() ||
+                        elevatorState.callButtonsUp.isNotEmpty() ||
+                        elevatorState.callButtonsDown.isNotEmpty()
+                if (hasRequests || elevatorState.currentFloor != 1) {
                     elevatorState.doorState = DoorState.CLOSING
                 } else {
                     // Idle at floor 1 - hide direction arrow
@@ -154,7 +194,7 @@ fun App() {
     }
 
     // Movement animation - smooth continuous motion,
-    // stops only at queued floors
+    // stops at queued floors and directional call buttons
     LaunchedEffect(
         elevatorState.isMoving,
         elevatorState.targetFloor) {
@@ -163,6 +203,7 @@ fun App() {
         val startFloor = elevatorState.currentFloor
         val direction =
             if (elevatorState.targetFloor > startFloor) 1 else -1
+        val movingUp = direction == 1
         val totalFloors =
             kotlin.math.abs(elevatorState.targetFloor - startFloor)
         val msPerFloor = 2000
@@ -190,9 +231,18 @@ fun App() {
             elevatorState.currentFloor = newFloor.coerceIn(1, 6)
             elevatorState.positionProgress = floorProgress
 
-            // Check if we just arrived at a new floor that is in the queue
+            // Check if we just arrived at a new floor that needs service
             if (newFloor != lastPassedFloor && newFloor != startFloor) {
-                if (newFloor in elevatorState.queuedFloors) {
+                // Stop for internal buttons always
+                val internalStop = newFloor in elevatorState.queuedFloors
+                // Stop for call buttons only if traveling in matching direction
+                val callStop = if (movingUp) {
+                    newFloor in elevatorState.callButtonsUp
+                } else {
+                    newFloor in elevatorState.callButtonsDown
+                }
+
+                if (internalStop || callStop) {
                     stopFloor = newFloor
                     break
                 }
@@ -204,13 +254,35 @@ fun App() {
 
         // Finalize position at stop floor or target
         val arrivedFloor = stopFloor ?: elevatorState.targetFloor
+        val isTargetArrival = stopFloor == null
         elevatorState.currentFloor = arrivedFloor
         elevatorState.positionProgress = 0f
 
-        // Remove from the queue and open the doors
+        // Clear internal queue
         if (arrivedFloor in elevatorState.queuedFloors) {
             elevatorState.queuedFloors -= arrivedFloor
         }
+
+        // Clear call buttons
+        if (isTargetArrival) {
+            // At target floor: clear BOTH directions (we came here to service a call)
+            elevatorState.callButtonsUp -= arrivedFloor
+            elevatorState.callButtonsDown -= arrivedFloor
+        } else {
+            // Intermediate stop: only clear matching direction
+            if (movingUp && arrivedFloor in elevatorState.callButtonsUp) {
+                elevatorState.callButtonsUp -= arrivedFloor
+            }
+            if (!movingUp && arrivedFloor in elevatorState.callButtonsDown) {
+                elevatorState.callButtonsDown -= arrivedFloor
+            }
+        }
+
+        // Clear direction if no more destinations queued
+        if (elevatorState.queuedFloors.isEmpty()) {
+            elevatorState.direction = Direction.NONE
+        }
+
         elevatorState.doorState = DoorState.OPENING
         elevatorState.isMoving = false
     }
@@ -223,16 +295,16 @@ fun App() {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // Left side: Elevator shaft visualization
-            ElevatorShaft(
+            // Left side: Elevator shaft with call buttons
+            ElevatorShaftWithCallButtons(
                 elevatorState = elevatorState,
                 modifier = Modifier
-                    .weight(2f)
+                    .weight(2.5f)
                     .fillMaxHeight()
                     .padding(16.dp)
             )
 
-            // Right side: Elevator button panel
+            // Right side: Internal elevator button panel
             ElevatorButtonPanel(
                 litButtons = elevatorState.queuedFloors,
                 onButtonPress = { floor ->
@@ -258,32 +330,43 @@ fun App() {
 
 // SCAN/Elevator algorithm:
 // continue in the current direction, then reverse
+// Considers both internal buttons (queuedFloors) and external call buttons (directional)
 fun getNextFloor(state: ElevatorState): Int? {
-    if (state.queuedFloors.isEmpty()) return null
+    val allEmpty = state.queuedFloors.isEmpty() &&
+            state.callButtonsUp.isEmpty() &&
+            state.callButtonsDown.isEmpty()
+    if (allEmpty) return null
 
     val current = state.currentFloor
-    val queued = state.queuedFloors
+
+    // Floors to service when going UP: internal requests + up call buttons
+    val upFloors = state.queuedFloors + state.callButtonsUp
+    // Floors to service when going DOWN: internal requests + down call buttons
+    val downFloors = state.queuedFloors + state.callButtonsDown
 
     return when (state.direction) {
         Direction.UP -> {
-            // Look for the floors above
-            val floorsAbove = queued.filter { it > current }.minOrNull()
+            // Look for floors above that need UP service
+            val floorsAbove = upFloors.filter { it > current }.minOrNull()
 
-            // Reverse direction, get the highest floor below
-            floorsAbove ?:
-            queued.filter { it < current }.maxOrNull()
+            // If none above, reverse: get highest floor needing DOWN service
+            floorsAbove ?: downFloors.filter { it < current }.maxOrNull()
+            // If still none, check for any remaining up calls below (edge case)
+            ?: upFloors.filter { it < current }.maxOrNull()
         }
         Direction.DOWN -> {
-            // Look for floors below
-            val floorsBelow = queued.filter { it < current }.maxOrNull()
+            // Look for floors below that need DOWN service
+            val floorsBelow = downFloors.filter { it < current }.maxOrNull()
 
-            // Reverse direction, get the lowest floor above
-            floorsBelow ?:
-            queued.filter { it > current }.minOrNull()
+            // If none below, reverse: get lowest floor needing UP service
+            floorsBelow ?: upFloors.filter { it > current }.minOrNull()
+            // If still none, check for any remaining down calls above (edge case)
+            ?: downFloors.filter { it > current }.minOrNull()
         }
         Direction.NONE -> {
-            // Pick the nearest floor
-            queued.minByOrNull { kotlin.math.abs(it - current) }
+            // Pick the nearest floor from any queue
+            val allFloors = state.queuedFloors + state.callButtonsUp + state.callButtonsDown
+            allFloors.minByOrNull { kotlin.math.abs(it - current) }
         }
     }
 }
@@ -429,6 +512,97 @@ fun ElevatorShaft(
 }
 
 @Composable
+fun ElevatorShaftWithCallButtons(
+    elevatorState: ElevatorState,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        val totalFloors = 6
+        // Match the shaft's height calculation (0.9f of available height)
+        val shaftHeight = maxHeight * 0.9f
+        val floorHeight = shaftHeight / totalFloors
+        // Calculate vertical offset to center the shaft area
+        val verticalOffset = (maxHeight - shaftHeight) / 2
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Elevator shaft on the left
+            ElevatorShaft(
+                elevatorState = elevatorState,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(0.25f)
+            )
+
+            // Call buttons column aligned with floors
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(80.dp)
+            ) {
+                for (floor in 1..totalFloors) {
+                    // Calculate Y position to match the floor center
+                    // Floors are drawn from bottom (1) to top (6)
+                    val floorCenterY = verticalOffset + shaftHeight -
+                            (floorHeight * floor) + (floorHeight / 2)
+
+                    Row(
+                        modifier = Modifier
+                            .offset(y = floorCenterY - 18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Up button (floors 1-5 only)
+                        if (floor < 6) {
+                            CallButton(
+                                isUp = true,
+                                isLit = floor in elevatorState.callButtonsUp,
+                                onClick = {
+                                    if (elevatorState.currentFloor == floor &&
+                                        !elevatorState.isMoving &&
+                                        elevatorState.doorState == DoorState.OPEN) {
+                                        return@CallButton
+                                    }
+                                    if (floor !in elevatorState.callButtonsUp) {
+                                        elevatorState.callButtonsUp += floor
+                                    }
+                                }
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.size(36.dp))
+                        }
+
+                        // Down button (floors 2-6 only)
+                        if (floor > 1) {
+                            CallButton(
+                                isUp = false,
+                                isLit = floor in elevatorState.callButtonsDown,
+                                onClick = {
+                                    if (elevatorState.currentFloor == floor &&
+                                        !elevatorState.isMoving &&
+                                        elevatorState.doorState == DoorState.OPEN) {
+                                        return@CallButton
+                                    }
+                                    if (floor !in elevatorState.callButtonsDown) {
+                                        elevatorState.callButtonsDown += floor
+                                    }
+                                }
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.size(36.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun ElevatorButtonPanel(
     litButtons: Set<Int>,
     onButtonPress: (Int) -> Unit,
@@ -508,5 +682,58 @@ fun FloorButton(
             fontWeight = FontWeight.Bold,
             color = textColor
         )
+    }
+}
+
+@Composable
+fun CallButton(
+    isUp: Boolean,
+    isLit: Boolean,
+    onClick: () -> Unit
+) {
+    val buttonColor = if (isLit) {
+        Color(0xFFFFB300) // Amber/gold when lit
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val arrowColor = if (isLit) {
+        Color.Black
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = buttonColor
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = if (isLit) 8.dp else 2.dp
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Canvas(modifier = Modifier.size(18.dp)) {
+            val arrowPath = Path().apply {
+                if (isUp) {
+                    // Up arrow
+                    moveTo(size.width / 2, 0f)
+                    lineTo(size.width, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                } else {
+                    // Down arrow
+                    moveTo(0f, 0f)
+                    lineTo(size.width, 0f)
+                    lineTo(size.width / 2, size.height)
+                    close()
+                }
+            }
+            drawPath(arrowPath, color = arrowColor)
+        }
     }
 }
