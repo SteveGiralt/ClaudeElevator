@@ -113,7 +113,7 @@ fun App() {
                     else Direction.DOWN
                 elevatorState.isMoving = true
             } else if (!hasRequests) {
-                // No requests - stay idle at current floor
+                // No requests - stay idle at the current floor
                 elevatorState.direction = Direction.NONE
             }
         }
@@ -137,7 +137,7 @@ fun App() {
             // Wait 5 seconds
             delay(5000)
 
-            // Re-check conditions after delay
+            // Re-check conditions after a delay
             val stillNoRequests = elevatorState.queuedFloors.isEmpty() &&
                     elevatorState.callButtonsUp.isEmpty() &&
                     elevatorState.callButtonsDown.isEmpty()
@@ -249,7 +249,7 @@ fun App() {
             if (newFloor != lastPassedFloor && newFloor != startFloor) {
                 // Stop for internal buttons always
                 val internalStop = newFloor in elevatorState.queuedFloors
-                // Stop for call buttons only if traveling in matching direction
+                // Stop for call buttons only if traveling in the matching direction
                 val callStop = if (movingUp) {
                     newFloor in elevatorState.callButtonsUp
                 } else {
@@ -268,7 +268,7 @@ fun App() {
 
         // Finalize position at stop floor or target
         val arrivedFloor = stopFloor ?: elevatorState.targetFloor
-        val isTargetArrival = stopFloor == null
+        // val isTargetArrival = stopFloor == null
         elevatorState.currentFloor = arrivedFloor
         elevatorState.positionProgress = 0f
 
@@ -312,7 +312,8 @@ fun App() {
             ElevatorButtonPanel(
                 litButtons = elevatorState.queuedFloors,
                 onButtonPress = { floor ->
-                    // Don't light button if elevator is at that floor with doors open
+                    // Don't light button if elevator is
+                    // at that floor with doors open
                     if (elevatorState.currentFloor == floor &&
                         !elevatorState.isMoving &&
                         elevatorState.doorState == DoorState.OPEN) {
@@ -335,7 +336,8 @@ fun App() {
 
 // SCAN/Elevator algorithm:
 // continue in the current direction, then reverse
-// Considers both internal buttons (queuedFloors) and external call buttons (directional)
+// Considers both internal buttons (queuedFloors) and
+// external call buttons (directional)
 fun getNextFloor(state: ElevatorState): Int? {
     val allEmpty = state.queuedFloors.isEmpty() &&
             state.callButtonsUp.isEmpty() &&
@@ -344,9 +346,11 @@ fun getNextFloor(state: ElevatorState): Int? {
 
     val current = state.currentFloor
 
-    // Floors to service when going UP: internal requests + up call buttons
+    // Floors to service when going UP:
+    // internal requests + up call buttons
     val upFloors = state.queuedFloors + state.callButtonsUp
-    // Floors to service when going DOWN: internal requests + down call buttons
+    // Floors to service when going DOWN:
+    // internal requests + down call buttons
     val downFloors = state.queuedFloors + state.callButtonsDown
 
     return when (state.direction) {
@@ -354,7 +358,8 @@ fun getNextFloor(state: ElevatorState): Int? {
             // Look for floors above that need UP service
             val floorsAbove = upFloors.filter { it > current }.minOrNull()
 
-            // If none above, reverse: get highest floor needing DOWN service
+            // If none above,
+            // reverse: get the highest floor needing DOWN service
             floorsAbove ?: downFloors.filter { it < current }.maxOrNull()
             // If still none, check for any remaining up calls below (edge case)
             ?: upFloors.filter { it < current }.maxOrNull()
@@ -363,9 +368,11 @@ fun getNextFloor(state: ElevatorState): Int? {
             // Look for floors below that need DOWN service
             val floorsBelow = downFloors.filter { it < current }.maxOrNull()
 
-            // If none below, reverse: get lowest floor needing UP service
+            // If none below, reverse:
+            // get the lowest floor needing UP service
             floorsBelow ?: upFloors.filter { it > current }.minOrNull()
-            // If still none, check for any remaining down calls above (edge case)
+            // If still none,
+            // check for any remaining down calls above (edge case)
             ?: downFloors.filter { it > current }.minOrNull()
         }
         Direction.NONE -> {
