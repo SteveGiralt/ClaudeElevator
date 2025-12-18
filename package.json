@@ -1,8 +1,9 @@
 {
+  "name": "project3",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "postinstall": "chmod +x gradlew"
-  },
-  "buildCommand": "./gradlew wasmJsBrowserDistribution --build-cache",
-  "outputDirectory": "build/dist/wasmJs/productionExecutable",
-  "installCommand": "yum install -y java-17-amazon-corretto-devel"
+    "build": "gradlew.bat wasmJsBrowserProductionWebpack",
+    "dev": "gradlew.bat wasmJsBrowserDevelopmentRun"
+  }
 }

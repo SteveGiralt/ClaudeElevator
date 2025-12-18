@@ -1,6 +1,10 @@
 # Gradle
 .gradle/
 build/
+!build/dist/
+!build/dist/wasmJs/
+!build/dist/wasmJs/productionExecutable/
+!build/dist/wasmJs/productionExecutable/**
 dist/
 !gradle/wrapper/gradle-wrapper.jar
 
