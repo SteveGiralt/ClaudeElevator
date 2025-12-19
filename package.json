@@ -1,11 +1,9 @@
 {
-  "name": "my-vercel-app",
+  "name": "project3",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "postinstall": "chmod +x gradlew",
-    "build": "./gradlew build",
-    "start": "node server.js"
-  },
-  "dependencies": {
+    "build": "gradlew.bat wasmJsBrowserProductionWebpack",
+    "dev": "gradlew.bat wasmJsBrowserDevelopmentRun"
   }
 }
